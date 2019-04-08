@@ -49,7 +49,7 @@ func TestAeadErrors(t *testing.T) {
 		},
 	}
 
-	parts, err := aead.encrypt([]byte{}, []byte{}, []byte{})
+	parts, err := aead.encrypt([]byte{}, []byte{}, []byte{}, []byte{})
 	if err != ErrCryptoFailure {
 		t.Error("should handle aead failure")
 	}
@@ -134,7 +134,7 @@ func TestVectorsAESGCM(t *testing.T) {
 
 	enc := newAESGCM(32)
 	key, _, _ := randomKeyGenerator{size: 32}.genKey()
-	out, err := enc.encrypt(key, aad, plaintext)
+	out, err := enc.encrypt(key, []byte{}, aad, plaintext)
 	if err != nil {
 		t.Error("Unable to encrypt:", err)
 		return

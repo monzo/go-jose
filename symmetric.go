@@ -31,7 +31,7 @@ import (
 	"io"
 
 	"golang.org/x/crypto/pbkdf2"
-	"gopkg.in/square/go-jose.v2/cipher"
+	josecipher "gopkg.in/square/go-jose.v2/cipher"
 )
 
 // Random reader (stubbed out in tests)
@@ -224,7 +224,7 @@ func (ctx aeadContentCipher) keySize() int {
 }
 
 // Encrypt some data
-func (ctx aeadContentCipher) encrypt(key, aad, pt []byte) (*aeadParts, error) {
+func (ctx aeadContentCipher) encrypt(key, iv, aad, pt []byte) (*aeadParts, error) {
 	// Get a new AEAD instance
 	aead, err := ctx.getAead(key)
 	if err != nil {
@@ -232,10 +232,14 @@ func (ctx aeadContentCipher) encrypt(key, aad, pt []byte) (*aeadParts, error) {
 	}
 
 	// Initialize a new nonce
-	iv := make([]byte, aead.NonceSize())
-	_, err = io.ReadFull(RandReader, iv)
-	if err != nil {
-		return nil, err
+	if len(iv) == 0 {
+		iv = make([]byte, aead.NonceSize())
+		_, err = io.ReadFull(RandReader, iv)
+		if err != nil {
+			return nil, err
+		}
+	} else if len(iv) != aead.NonceSize() {
+		return nil, ErrInvalidIVSize
 	}
 
 	ciphertextAndTag := aead.Seal(nil, iv, pt, aad)
@@ -272,7 +276,7 @@ func (ctx *symmetricKeyCipher) encryptKey(cek []byte, alg KeyAlgorithm) (recipie
 	case A128GCMKW, A192GCMKW, A256GCMKW:
 		aead := newAESGCM(len(ctx.key))
 
-		parts, err := aead.encrypt(ctx.key, []byte{}, cek)
+		parts, err := aead.encrypt(ctx.key, nil, []byte{}, cek)
 		if err != nil {
 			return recipientInfo{}, err
 		}

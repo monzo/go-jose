@@ -36,7 +36,7 @@ type Encrypter interface {
 // A generic content cipher
 type contentCipher interface {
 	keySize() int
-	encrypt(cek []byte, aad, plaintext []byte) (*aeadParts, error)
+	encrypt(cek, iv, aad, plaintext []byte) (*aeadParts, error)
 	decrypt(cek []byte, aad []byte, parts *aeadParts) ([]byte, error)
 }
 
@@ -63,6 +63,7 @@ type genericEncrypter struct {
 	cipher         contentCipher
 	recipients     []recipientKeyInfo
 	keyGenerator   keyGenerator
+	iv             []byte
 	extraHeaders   map[HeaderKey]interface{}
 }
 
@@ -75,6 +76,16 @@ type recipientKeyInfo struct {
 // EncrypterOptions represents options that can be set on new encrypters.
 type EncrypterOptions struct {
 	Compression CompressionAlgorithm
+
+	// Initialization vector to use for encryption. Unless you *absolutely*
+	// need to specify this, then you should leave this as `nil` and let
+	// the library generate a random IV for you. IVs must not be re-used;
+	// failure to do so will expose a variety of cryptographic attacks.
+	//
+	// The required size of the IV is algorithm dependent and usually matches
+	// the cipher blocksize. It rarely makes sense to use this unless you're
+	// using `DIRECT` encryption
+	InitializationVector []byte
 
 	// Optional map of additional keys to be inserted into the protected header
 	// of a JWS object. Some specifications which make use of JWS like to insert
@@ -128,6 +139,7 @@ func NewEncrypter(enc ContentEncryption, rcpt Recipient, opts *EncrypterOptions)
 	if opts != nil {
 		encrypter.compressionAlg = opts.Compression
 		encrypter.extraHeaders = opts.ExtraHeaders
+		encrypter.iv = opts.InitializationVector
 	}
 
 	if encrypter.cipher == nil {
@@ -377,7 +389,7 @@ func (ctx *genericEncrypter) EncryptWithAuthData(plaintext, aad []byte) (*JSONWe
 	}
 
 	authData := obj.computeAuthData()
-	parts, err := ctx.cipher.encrypt(cek, authData, plaintext)
+	parts, err := ctx.cipher.encrypt(cek, ctx.iv, authData, plaintext)
 	if err != nil {
 		return nil, err
 	}
@@ -391,8 +403,9 @@ func (ctx *genericEncrypter) EncryptWithAuthData(plaintext, aad []byte) (*JSONWe
 
 func (ctx *genericEncrypter) Options() EncrypterOptions {
 	return EncrypterOptions{
-		Compression:  ctx.compressionAlg,
-		ExtraHeaders: ctx.extraHeaders,
+		Compression:          ctx.compressionAlg,
+		ExtraHeaders:         ctx.extraHeaders,
+		InitializationVector: ctx.iv,
 	}
 }
 
