@@ -63,6 +63,11 @@ var (
 	// encrypt with AES-256 but passing only a 128-bit key as input.
 	ErrInvalidKeySize = errors.New("square/go-jose: invalid key size for algorithm")
 
+	// ErrInvalidIVSize indicates that the given IV is not teh correct size
+	// for the selected algorthm. This can occur, for example, when trying to encrypt
+	// with AES-128 GCM but passing only a 64-bit IV as input
+	ErrInvalidIVSize = errors.New("squre/go-jose: invalid iv size for algorithm")
+
 	// ErrNotSupported serialization of object is not supported. This occurs when
 	// trying to compact-serialize an object which can't be represented in
 	// compact form.
